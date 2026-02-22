@@ -45,7 +45,7 @@ public class ExternalAppScannerService extends Service {
     private BluetoothGattServer gattServer;
     private BluetoothLeAdvertiser advertiser;
 
-    public static boolean isServiceRunning = false;
+    public boolean isServiceRunning = false;
     private BluetoothDevice currentDevice;
 
     private final ByteArrayOutputStream messageBuffer = new ByteArrayOutputStream();
@@ -62,7 +62,7 @@ public class ExternalAppScannerService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (isTerminationAction(intent)) {
-            stopSelf();
+            stopCurrentService();
             return START_NOT_STICKY;
         }
 
@@ -197,7 +197,6 @@ public class ExternalAppScannerService extends Service {
         }
 
 
-
         @Override
         public void onCharacteristicWriteRequest(BluetoothDevice device,
                                                  int requestId,
@@ -257,23 +256,6 @@ public class ExternalAppScannerService extends Service {
         }
     }
 
-    // --- Статические методы для плагина ---
-
-//    @NonNull
-//    public static Map<String, Object> getServiceStatus(@NonNull Context context) {
-//        Map<String, Object> status = new HashMap<>();
-//
-//        BluetoothManager manager = (BluetoothManager) context.getSystemService(Context.BLUETOOTH_SERVICE);
-//        BluetoothAdapter adapter = (manager != null) ? manager.getAdapter() : null;
-//        boolean isBtEnabled = adapter != null && adapter.isEnabled();
-//
-//        status.put("code", Constants.Codes.SERVICE_STOPPED);
-//        status.put("isBtEnabled", isBtEnabled);
-//        status.put("isAdvertising", false);
-//
-//        return status;
-//    }
-
     // --- Notification Helpers ---
 
     private void createNotificationChannel() {
@@ -305,8 +287,8 @@ public class ExternalAppScannerService extends Service {
     // --- Intents Helpers ---
     private PendingIntent createStopServiceIntent() {
         Intent intent = new Intent(this, ExternalAppScannerService.class).setAction(ACTION_STOP);
-        int flags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ?
-                PendingIntent.FLAG_IMMUTABLE : PendingIntent.FLAG_UPDATE_CURRENT;
+        int flags = (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_IMMUTABLE : 0)
+                | PendingIntent.FLAG_UPDATE_CURRENT;
         return PendingIntent.getService(this, 0, intent, flags);
     }
 
@@ -318,16 +300,11 @@ public class ExternalAppScannerService extends Service {
     }
 
     public Map<String, Object> getCurrentStatus() {
-        Map<String, Object> status = new HashMap<>();
         String code = Constants.Codes.SERVICE_STOPPED;
         if (isServiceRunning) code = Constants.Codes.SERVICE_STARTED;
         if (currentDevice != null) code = Constants.Codes.DEVICE_CONNECTED;
 
-        status.put("code", code);
-        status.put("isBtEnabled", false);
-        status.put("isAdvertising", false);
-        status.put("device", currentDevice != null ? createBluetoothDeviceMap(currentDevice) : null);
-        return status;
+        return Utils.buildStatusMap(code, Constants.StatusType.INFO, currentDevice != null ? createBluetoothDeviceMap(currentDevice) : null);
     }
 
 
@@ -348,6 +325,19 @@ public class ExternalAppScannerService extends Service {
 
     @Override
     public void onDestroy() {
+        stopCurrentService();
+        isServiceRunning = false;
+        ScannerEvents.StatusBuilder.info(Constants.Codes.SERVICE_STOPPED).send();
+        super.onDestroy();
+    }
+
+    /**
+     * Метод для полной остановки логики сканера (BLE, уведомление, флаги)
+     */
+    public void stopCurrentService() {
+        Logger.i("Stopping service.");
+
+        // Останавливаем BLE
         try {
             if (advertiser != null && btAdapter != null && btAdapter.isEnabled()) {
                 advertiser.stopAdvertising(advertiseCallback);
@@ -355,13 +345,23 @@ public class ExternalAppScannerService extends Service {
         } catch (Exception e) {
             Logger.e("Error stopping advertising", e);
         }
+
         if (gattServer != null) {
             gattServer.clearServices();
             gattServer.close();
+            gattServer = null;
         }
+
+        // Убираем уведомление из шторки
+        stopForeground(true);
+
         isServiceRunning = false;
+        currentDevice = null;
+        messageBuffer.reset();
+
         ScannerEvents.StatusBuilder.info(Constants.Codes.SERVICE_STOPPED).send();
-        super.onDestroy();
+
+        stopSelf();
     }
 
     @NonNull
