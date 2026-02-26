@@ -26,6 +26,10 @@ abstract class ExternalAppScannerPlatform extends PlatformInterface {
   /// Поток событий состояния сканера (ошибки, статусы подключения, готовность адаптера).
   Stream<ScannerStatus> get statusStream;
 
+  Future<void> init();
+
+  Future<void> dispose();
+
   /// Запрос на активацию Bluetooth на устройстве.
   ///
   /// Возвращает:

@@ -41,17 +41,14 @@ public final class Constants {
         public static final String BT_DISABLED = "BT_DISABLED";
         public static final String SERVICE_STARTED = "SERVICE_STARTED";
         public static final String SERVICE_STOPPED = "SERVICE_STOPPED";
-        public static final String ADVERTISING_STARTED = "ADVERTISING_STARTED";
         public static final String DEVICE_CONNECTED = "DEVICE_CONNECTED";
         public static final String DEVICE_DISCONNECTED = "DEVICE_DISCONNECTED";
 
         // Ошибки
-        public static final String ERROR_GATT_INIT = "ERROR_GATT_INIT";
-        public static final String ERROR_ADVERTISE_FAILED = "ERROR_ADVERTISE_FAILED";
+        public static final String GATT_INIT_FAILED = "GATT_INIT_FAILED";
+        public static final String ADVERTISE_FAILED = "ADVERTISE_FAILED";
         public static final String PERMISSION_NOT_GRANTED = "PERMISSION_NOT_GRANTED";
         public static final String ADVERTISE_NOT_SUPPORTED = "ADVERTISE_NOT_SUPPORTED";
-        public static final String SERVICE_START_FAILED = "SERVICE_START_FAILED";
-        public static final String INTENT_FAILED = "INTENT_FAILED";
         public static final String ALREADY_IN_PROGRESS = "ALREADY_IN_PROGRESS";
         public static final String NO_ACTIVITY = "NO_ACTIVITY";
 

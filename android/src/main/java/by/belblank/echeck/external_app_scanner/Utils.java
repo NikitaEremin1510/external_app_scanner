@@ -62,10 +62,6 @@ public final class Utils {
     private static List<String> getMissingPermissions(@NonNull Context context) {
         final List<String> permissions = new ArrayList<>();
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            permissions.add(Manifest.permission.POST_NOTIFICATIONS);
-        }
-
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             permissions.add(Manifest.permission.BLUETOOTH_ADVERTISE);
             permissions.add(Manifest.permission.BLUETOOTH_CONNECT);

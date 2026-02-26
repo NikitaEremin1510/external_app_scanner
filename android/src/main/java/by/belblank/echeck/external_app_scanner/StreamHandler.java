@@ -13,11 +13,13 @@ public class StreamHandler implements EventChannel.StreamHandler {
 
     @Override
     public void onListen(Object arguments, EventChannel.EventSink eventSink) {
+        Logger.d("onListen() " + this);
         this.eventSink = eventSink;
     }
 
     @Override
     public void onCancel(Object arguments) {
+        Logger.d("onCancel() " + this);
         this.eventSink = null;
     }
 

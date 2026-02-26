@@ -25,19 +25,6 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-
-    _statusSub = ExternalAppScannerPlatform.instance.statusStream.listen((ScannerStatus status) {
-      if (status.device != null) {
-        _device = status.device;
-      }
-      setState(() {
-        _code = status.code;
-      });
-    });
-
-    _dataSub = ExternalAppScannerPlatform.instance.dataStream.listen((String data) {
-      setState(() => _lastData = data);
-    });
   }
 
   @override
@@ -45,6 +32,39 @@ class _HomeScreenState extends State<HomeScreen> {
     _statusSub?.cancel();
     _dataSub?.cancel();
     super.dispose();
+  }
+
+  Future<void> init() async {
+    try {
+      await ExternalAppScannerPlatform.instance.init();
+      _statusSub = ExternalAppScannerPlatform.instance.statusStream.listen((ScannerStatus status) {
+        if (status.device != null) {
+          _device = status.device;
+        }
+        if (status.code == Code.deviceDisconnected && mounted) {
+          ScaffoldMessenger.of(context).clearSnackBars();
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Устройство отключено')));
+          return;
+        }
+        setState(() {
+          _code = status.code;
+        });
+      });
+
+      _dataSub = ExternalAppScannerPlatform.instance.dataStream.listen((String data) {
+        setState(() => _lastData = data);
+      });
+    } on ScannerException catch (e) {
+      _showSnackBar(isSuccess: false, errorText: e.code.message);
+    }
+  }
+
+  Future<void> disposeServer() async {
+    try {
+      await ExternalAppScannerPlatform.instance.dispose();
+    } on ScannerException catch (e) {
+      _showSnackBar(isSuccess: false, errorText: e.code.message);
+    }
   }
 
   Future<void> startServer() async {
@@ -177,12 +197,14 @@ class _HomeScreenState extends State<HomeScreen> {
               runSpacing: 16,
               spacing: 8,
               children: [
+                FilledButton(onPressed: init, child: const Text('Init')),
                 FilledButton(onPressed: startServer, child: const Text('Start')),
                 FilledButton(onPressed: stopServer, child: const Text('Stop')),
                 FilledButton(onPressed: enableBT, child: const Text('Enable BT')),
                 FilledButton(onPressed: checkPermissions, child: const Text('Check permissions')),
                 FilledButton(onPressed: requestPermissions, child: const Text('Request permissions')),
                 FilledButton(onPressed: getStatus, child: const Text('Get status')),
+                FilledButton(onPressed: disposeServer, child: const Text('Dispose')),
               ],
             ),
           ],

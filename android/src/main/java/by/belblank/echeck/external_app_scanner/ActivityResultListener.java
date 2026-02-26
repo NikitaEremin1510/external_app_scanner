@@ -68,7 +68,7 @@ public class ActivityResultListener implements PluginRegistry.ActivityResultList
             Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
             activity.startActivityForResult(enableBtIntent, REQUEST_CODE_ENABLE_BT);
         } catch (Exception e) {
-            result.error(Constants.Codes.INTENT_FAILED, e.getMessage(), e);
+            result.error(Constants.Codes.NO_ACTIVITY, e.getMessage(), e);
             this.pendingResult = null;
         }
     }

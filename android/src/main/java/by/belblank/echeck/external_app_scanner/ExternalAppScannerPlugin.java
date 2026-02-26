@@ -2,19 +2,16 @@ package by.belblank.echeck.external_app_scanner;
 
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
-import android.content.ComponentName;
 import android.content.Context;
-import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.ServiceConnection;
 import android.os.Build;
-import android.os.IBinder;
 
 import androidx.annotation.NonNull;
 
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
 import io.flutter.embedding.engine.plugins.activity.ActivityAware;
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding;
+import io.flutter.plugin.common.BinaryMessenger;
 import io.flutter.plugin.common.EventChannel;
 import io.flutter.plugin.common.MethodCall;
 import io.flutter.plugin.common.MethodChannel;
@@ -31,37 +28,24 @@ public class ExternalAppScannerPlugin implements FlutterPlugin, MethodCallHandle
     private EventChannel dataEventChannel;
     private ActivityPluginBinding activityBinding;
     private Context context;
-
     private ActivityResultListener activityResultListener;
-    private boolean isBound;
-    private ExternalAppScannerService boundedService;
+    private BinaryMessenger binaryMessenger;
 
-    private final ServiceConnection serviceConnection = new ServiceConnection() {
-        @Override
-        public void onServiceConnected(ComponentName name, IBinder service) {
-            if (!(service instanceof ExternalAppScannerService.LocalBinder binder)) return;
-            boundedService = binder.getService();
-            isBound = true;
-        }
+    private ExternalAppServerManager serverManager;
 
-        @Override
-        public void onServiceDisconnected(ComponentName name) {
-            boundedService = null;
-            isBound = false;
-        }
-    };
 
     private final BluetoothStateReceiver btStateReceiver = new BluetoothStateReceiver(() -> {
-        if (isBound && boundedService != null) {
-            boundedService.stopSelf();
+        if (serverManager != null) {
+            serverManager.stopServer();
         }
-        unbindBleService();
     });
 
     @Override
     public void onMethodCall(@NonNull MethodCall call, @NonNull Result result) {
         switch (call.method) {
             case "getAndroidVersion" -> getAndroidVersion(result);
+            case "init" -> init(result);
+            case "dispose" -> dispose(result);
             case "enableBT" -> enableBT(result);
             case "start" -> start(result);
             case "stop" -> stop(result);
@@ -70,25 +54,50 @@ public class ExternalAppScannerPlugin implements FlutterPlugin, MethodCallHandle
         }
     }
 
-    @Override
-    public void onAttachedToEngine(@NonNull FlutterPluginBinding binding) {
-        this.context = binding.getApplicationContext();
+    private void dispose(Result result) {
+        Logger.d("Disposing...");
+        if (serverManager != null) {
+            serverManager.stopServer();
+        }
+        unregisterBtReceiver();
 
+        if (dataEventChannel != null) {
+            dataEventChannel.setStreamHandler(null);
+            dataEventChannel = null;
+        }
+        if (statusEventChannel != null) {
+            statusEventChannel.setStreamHandler(null);
+            statusEventChannel = null;
+        }
+
+        ScannerEvents.getDataStream().onCancel(null);
+        ScannerEvents.getStatusStream().onCancel(null);
+        Logger.d("Disposed");
+        result.success(null);
+    }
+
+    private void init(Result result) {
+        Logger.d("Initializing...");
         registerBtReceiver();
-
-        Intent intent = new Intent(this.context, ExternalAppScannerService.class);
-        bindService(intent);
-        //  METHOD CHANNEL
-        methodChannel = new MethodChannel(binding.getBinaryMessenger(), Constants.METHOD_CHANNEL_NAME);
-        methodChannel.setMethodCallHandler(this);
-
         //  STATUS EVENT CHANNEL
-        statusEventChannel = new EventChannel(binding.getBinaryMessenger(), Constants.STATUS_EVENT_CHANNEL_NAME);
+        statusEventChannel = new EventChannel(binaryMessenger, Constants.STATUS_EVENT_CHANNEL_NAME);
         statusEventChannel.setStreamHandler(ScannerEvents.getStatusStream());
 
         //  DATA EVENT CHANNEL
-        dataEventChannel = new EventChannel(binding.getBinaryMessenger(), Constants.DATA_EVENT_CHANNEL_NAME);
+        dataEventChannel = new EventChannel(binaryMessenger, Constants.DATA_EVENT_CHANNEL_NAME);
         dataEventChannel.setStreamHandler(ScannerEvents.getDataStream());
+        Logger.d("Initialized...");
+        result.success(null);
+    }
+
+    @Override
+    public void onAttachedToEngine(@NonNull FlutterPluginBinding binding) {
+        this.context = binding.getApplicationContext();
+        this.binaryMessenger = binding.getBinaryMessenger();
+
+        //  METHOD CHANNEL
+        methodChannel = new MethodChannel(binding.getBinaryMessenger(), Constants.METHOD_CHANNEL_NAME);
+        methodChannel.setMethodCallHandler(this);
     }
 
     private void registerBtReceiver() {
@@ -104,20 +113,6 @@ public class ExternalAppScannerPlugin implements FlutterPlugin, MethodCallHandle
     private void unregisterBtReceiver() {
         if (context == null) return;
         context.unregisterReceiver(btStateReceiver);
-    }
-
-    private void bindService(@NonNull Intent intent) {
-        if (!isBound && context != null) {
-            context.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE);
-        }
-    }
-
-    private void unbindBleService() {
-        if (isBound && context != null) {
-            context.unbindService(serviceConnection);
-            isBound = false;
-            boundedService = null;
-        }
     }
 
     private void getAndroidVersion(Result result) {
@@ -149,57 +144,63 @@ public class ExternalAppScannerPlugin implements FlutterPlugin, MethodCallHandle
             return;
         }
 
-        try {
-            Intent intent = new Intent(this.context, ExternalAppScannerService.class);
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent);
-            } else {
-                context.startService(intent);
-            }
-            bindService(intent);
-            result.success(true);
-        } catch (Exception e) {
-            result.error(Constants.Codes.SERVICE_START_FAILED, e.getMessage(), e);
-        }
+        serverManager = new ExternalAppServerManager(context);
+        serverManager.startServer();
+        result.success(null);
     }
 
     private void getStatus(Result result) {
-        if (isBound && boundedService != null) {
-            result.success(boundedService.getCurrentStatus());
+        if (serverManager != null) {
+            result.success(serverManager.getCurrentStatus());
         } else {
-            // Если сервис не запущен, возвращаем дефолтный статус
-            result.success(Utils.buildStatusMap(null, null, null));
+            result.success(Utils.buildStatusMap(
+                    Constants.Codes.SERVICE_STOPPED,
+                    Constants.StatusType.INFO,
+                    null
+            ));
         }
     }
 
     private void stop(MethodChannel.Result result) {
-        if (context != null) {
-            unbindBleService();
-            context.stopService(new Intent(this.context, ExternalAppScannerService.class));
+        if (serverManager != null) {
+            Logger.d("Stop server");
+            serverManager.stopServer();
         }
         result.success(true);
     }
 
-    @Override
-    public void onDetachedFromEngine(@NonNull FlutterPluginBinding binding) {
-        if (methodChannel != null) {
-            methodChannel.setMethodCallHandler(null);
-            methodChannel = null;
+    private void performCleanup() {
+        Logger.d("Performing cleanup...");
+        if (serverManager != null) {
+            serverManager.stopServer();
+            serverManager = null;
+        }
+        unregisterBtReceiver();
+
+        // Сбрасываем хендлеры каналов
+        if (dataEventChannel != null) {
+            dataEventChannel.setStreamHandler(null);
+            dataEventChannel = null;
         }
         if (statusEventChannel != null) {
             statusEventChannel.setStreamHandler(null);
             statusEventChannel = null;
         }
-        if (dataEventChannel != null) {
-            dataEventChannel.setStreamHandler(null);
-            dataEventChannel = null;
-        }
+
+        // Закрываем потоки в синглтонах событий
         ScannerEvents.getDataStream().onCancel(null);
         ScannerEvents.getStatusStream().onCancel(null);
+    }
 
-        unbindBleService();
-        unregisterBtReceiver();
-        context = null;
+    @Override
+    public void onDetachedFromEngine(@NonNull FlutterPluginBinding binding) {
+        performCleanup();
+        if (methodChannel != null) {
+            methodChannel.setMethodCallHandler(null);
+            methodChannel = null;
+        }
+        this.context = null;
+        this.binaryMessenger = null;
         detachActivity();
     }
 
