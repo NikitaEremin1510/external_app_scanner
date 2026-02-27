@@ -1,6 +1,6 @@
 import 'package:external_app_scanner/external_app_scanner.dart';
 
-class ScannerStatus {
+class ExtAppScannerStatus {
   final Type type;
   final Code code;
 
@@ -9,13 +9,13 @@ class ScannerStatus {
   final BluetoothDevice? device;
 
   /// Приватный конструктор. Экземпляр только через фабричный метод [BleStatusMessage.fromDynamic]
-  const ScannerStatus._({required this.type, required this.code, required this.device});
+  const ExtAppScannerStatus._({required this.type, required this.code, required this.device});
 
-  factory ScannerStatus.fromDynamic(dynamic data) {
+  factory ExtAppScannerStatus.fromDynamic(dynamic data) {
     final map = data is Map ? data : {};
     final deviceMap = map['device'];
 
-    return ScannerStatus._(
+    return ExtAppScannerStatus._(
       type: Type.fromString(map['type'] ?? ''),
       code: Code.fromString(map['code'] ?? ''),
       device: deviceMap is Map ? BluetoothDevice.fromMap(deviceMap) : null,
@@ -28,7 +28,7 @@ class ScannerStatus {
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    return other is ScannerStatus && type == other.type && code == other.code && device == other.device;
+    return other is ExtAppScannerStatus && type == other.type && code == other.code && device == other.device;
   }
 
   @override

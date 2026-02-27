@@ -31,7 +31,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> subscribe() async {
     try {
-      _statusSub = ExternalAppScannerPlatform.instance.statusStream.listen((ScannerStatus status) {
+      _statusSub = ExternalAppScannerPlatform.instance.statusStream.listen((ExtAppScannerStatus status) {
         if (status.device != null) {
           _device = status.device;
         }
@@ -160,7 +160,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> getStatus() async {
     try {
-      final ScannerStatus currentStatus = await ExternalAppScannerPlatform.instance.getStatus();
+      final ExtAppScannerStatus currentStatus = await ExternalAppScannerPlatform.instance.getStatus();
       setState(() {
         _device = currentStatus.device;
         _code = currentStatus.code;

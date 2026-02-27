@@ -113,9 +113,10 @@ public class ExternalAppScannerPlugin implements FlutterPlugin, MethodCallHandle
             result.error(Constants.Codes.ADVERTISE_NOT_SUPPORTED, null, null);
             return;
         }
-
-        serverManager = new GattService(context, statusStreamHandler, dataStreamHandler);
-        serverManager.startServer();
+        if (serverManager == null) {
+            serverManager = new GattService(context, statusStreamHandler, dataStreamHandler);
+            serverManager.startServer();
+        }
         result.success(null);
     }
 
@@ -133,8 +134,8 @@ public class ExternalAppScannerPlugin implements FlutterPlugin, MethodCallHandle
 
     private void stop(MethodChannel.Result result) {
         if (serverManager != null) {
-            Logger.d("Stop server");
             serverManager.stopServer();
+            serverManager = null;
         }
         result.success(true);
     }

@@ -6,8 +6,8 @@ enum Type {
 
   static Type fromString(String code) {
     return switch (code.toUpperCase()) {
-      'ERROR' => Type.info,
-      'INFO' => Type.error,
+      'ERROR' => Type.error,
+      'INFO' => Type.info,
       _ => Type.info,
     };
   }

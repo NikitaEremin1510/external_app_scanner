@@ -44,7 +44,7 @@ public class GattService {
 
     private final BluetoothStateReceiver btStateReceiver = new BluetoothStateReceiver(this::stopServer);
 
-    public GattService(Context context, StreamHandlerImpl statusStreamHandler, StreamHandlerImpl dataStreamHandler) {
+    public GattService(@NonNull Context context, StreamHandlerImpl statusStreamHandler, StreamHandlerImpl dataStreamHandler) {
         this.context = context;
         this.statusStreamHandler = statusStreamHandler;
         this.dataStreamHandler = dataStreamHandler;
@@ -66,8 +66,8 @@ public class GattService {
     }
 
     public void startServer() {
-        registerBroadcastReceiver();
         if (isRunning) return;
+        registerBroadcastReceiver();
         startGattServer();
         if (currentDevice == null) {
             startAdvertising();
@@ -83,19 +83,22 @@ public class GattService {
         } else {
             context.registerReceiver(btStateReceiver, filter);
         }
+        Logger.d("Broadcast receiver registered.");
     }
 
     private void unregisterBroadcastReceiver() {
-        if (context == null) return;
-        context.unregisterReceiver(btStateReceiver);
-        Logger.d("Broadcast receiver unregistered.");
+        try {
+            context.unregisterReceiver(btStateReceiver);
+        } catch (Exception ignored) {
+        }
+        Logger.i("Broadcast receiver unregistered.");
     }
 
     public void stopServer() {
         stopAdvertising();
         stopGattServer();
-        unregisterBroadcastReceiver();
         isRunning = false;
+        unregisterBroadcastReceiver();
         statusStreamHandler.send(Utils.buildStatusMap(Constants.Codes.SERVICE_STOPPED, Constants.StatusType.INFO, null));
     }
 
@@ -129,6 +132,7 @@ public class GattService {
 
     private void startGattServer() {
         gattServer = bluetoothManager.openGattServer(context, gattServerCallback);
+        Logger.i("Gatt Server started.");
         if (gattServer == null) {
             Logger.e("CRITICAL: openGattServer is NULL!", null);
             return;
@@ -162,12 +166,10 @@ public class GattService {
     // --- CALLBACKS ---
     private final AdvertiseCallback advertiseCallback = new AdvertiseCallback() {
         @Override
-        public void onStartSuccess(AdvertiseSettings settingsInEffect) {
-            Logger.i("Advertising started. Settings: " + settingsInEffect.toString() + ".");
+        public void onStartSuccess(@NonNull AdvertiseSettings settingsInEffect) {
+            Logger.i("Advertising started. Settings: " + settingsInEffect + ".");
             if (currentDevice == null) {
                 statusStreamHandler.send(Utils.buildStatusMap(Constants.Codes.SERVICE_STARTED, Constants.StatusType.INFO, null));
-            } else {
-                Logger.d("Skip SERVICE_STARTED status because device already connected.");
             }
         }
 

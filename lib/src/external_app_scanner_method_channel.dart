@@ -17,7 +17,8 @@ class ExternalAppScannerMethodChannel extends ExternalAppScannerPlatform {
   Stream<String> get dataStream => _dataEventChannel.receiveBroadcastStream().cast<String>();
 
   @override
-  Stream<ScannerStatus> get statusStream => _statusEventChannel.receiveBroadcastStream().map(ScannerStatus.fromDynamic);
+  Stream<ExtAppScannerStatus> get statusStream =>
+      _statusEventChannel.receiveBroadcastStream().map(ExtAppScannerStatus.fromDynamic);
 
   @override
   Future<bool> enableBt() async {
@@ -47,10 +48,10 @@ class ExternalAppScannerMethodChannel extends ExternalAppScannerPlatform {
   }
 
   @override
-  Future<ScannerStatus> getStatus() async {
+  Future<ExtAppScannerStatus> getStatus() async {
     try {
       final result = await _methodChannel.invokeMethod('getStatus');
-      return ScannerStatus.fromDynamic(result);
+      return ExtAppScannerStatus.fromDynamic(result);
     } on PlatformException catch (e) {
       throw _handlePlatformException(e);
     }
