@@ -43,8 +43,8 @@ abstract class ExternalAppScannerPlatform extends PlatformInterface {
   /// * Исключения [ScannerException].
   Future<void> stop();
 
-  /// Позволяет мгновенно получить текущее состояние сервиса в формате [ServiceStatus]
-  /// (например, запущен ли сервер или идет ли рассылка) без ожидания события в [statusStream]
+  /// Позволяет мгновенно получить текущее состояние сервиса в формате [ScannerStatus]
+  /// (например, запущен ли сервер или идет ли рассылка) без ожидания события в [ScannerStatus]
   /// * Исключения [ScannerException].
   Future<ScannerStatus> getStatus();
 }
