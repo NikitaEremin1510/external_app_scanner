@@ -5,7 +5,7 @@ import android.os.Looper;
 
 import io.flutter.plugin.common.EventChannel;
 
-public class StreamHandler implements EventChannel.StreamHandler {
+public class StreamHandlerImpl implements EventChannel.StreamHandler {
 
     private final Handler uiHandler = new Handler(Looper.getMainLooper());
 

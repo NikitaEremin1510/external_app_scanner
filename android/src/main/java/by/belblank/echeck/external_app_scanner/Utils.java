@@ -41,9 +41,8 @@ public final class Utils {
         }
 
         final BluetoothManager bluetoothManager = (BluetoothManager) context.getSystemService(Context.BLUETOOTH_SERVICE);
-        if (bluetoothManager == null) return false;
-
         final BluetoothAdapter adapter = bluetoothManager.getAdapter();
+
         // На некоторых устройствах чип BLE есть, но транслировать пакеты он не умеет
         return adapter != null && adapter.isMultipleAdvertisementSupported();
     }
@@ -63,10 +62,14 @@ public final class Utils {
         final List<String> permissions = new ArrayList<>();
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            // For Android 12 (S) and above
             permissions.add(Manifest.permission.BLUETOOTH_ADVERTISE);
             permissions.add(Manifest.permission.BLUETOOTH_CONNECT);
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            // For Android 10 (Q) and 11 (R)
             permissions.add(Manifest.permission.ACCESS_FINE_LOCATION);
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            // For Android 6 (M) to 9 (P)
             permissions.add(Manifest.permission.ACCESS_COARSE_LOCATION);
         }
 

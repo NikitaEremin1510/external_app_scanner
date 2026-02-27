@@ -23,25 +23,20 @@ class _HomeScreenState extends State<HomeScreen> {
   BluetoothDevice? _device;
 
   @override
-  void initState() {
-    super.initState();
-  }
-
-  @override
   void dispose() {
     _statusSub?.cancel();
     _dataSub?.cancel();
     super.dispose();
   }
 
-  Future<void> init() async {
+  Future<void> subscribe() async {
     try {
-      await ExternalAppScannerPlatform.instance.init();
       _statusSub = ExternalAppScannerPlatform.instance.statusStream.listen((ScannerStatus status) {
         if (status.device != null) {
           _device = status.device;
         }
         if (status.code == Code.deviceDisconnected && mounted) {
+          setState(() => _device = null);
           ScaffoldMessenger.of(context).clearSnackBars();
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Устройство отключено')));
           return;
@@ -59,9 +54,10 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> disposeServer() async {
+  Future<void> unsubscribe() async {
     try {
-      await ExternalAppScannerPlatform.instance.dispose();
+      _statusSub?.cancel();
+      _dataSub?.cancel();
     } on ScannerException catch (e) {
       _showSnackBar(isSuccess: false, errorText: e.code.message);
     }
@@ -180,34 +176,36 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(title: const Text('Scanner Example')),
       body: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Text('Code: ${_code?.message}', style: const TextStyle(fontSize: 18)),
-            if (_device != null) ...[
-              const SizedBox(height: 32),
-              Text('Device: ${_device?.name}', style: const TextStyle(fontSize: 18)),
-              Text('Address: ${_device?.address}', style: const TextStyle(fontSize: 18)),
-              Text('Type: ${_device?.type}', style: const TextStyle(fontSize: 18)),
-              Text('Bond state: ${_device?.bondState}', style: const TextStyle(fontSize: 18)),
-            ],
-            const SizedBox(height: 32),
-            Text('Last scan: $_lastData', style: const TextStyle(fontSize: 18)),
-            const SizedBox(height: 32),
-            Wrap(
-              runSpacing: 16,
-              spacing: 8,
-              children: [
-                FilledButton(onPressed: init, child: const Text('Init')),
-                FilledButton(onPressed: startServer, child: const Text('Start')),
-                FilledButton(onPressed: stopServer, child: const Text('Stop')),
-                FilledButton(onPressed: enableBT, child: const Text('Enable BT')),
-                FilledButton(onPressed: checkPermissions, child: const Text('Check permissions')),
-                FilledButton(onPressed: requestPermissions, child: const Text('Request permissions')),
-                FilledButton(onPressed: getStatus, child: const Text('Get status')),
-                FilledButton(onPressed: disposeServer, child: const Text('Dispose')),
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              Text('Code: ${_code?.message}', style: const TextStyle(fontSize: 18)),
+              if (_device != null) ...[
+                const SizedBox(height: 32),
+                Text('Device: ${_device?.name}', style: const TextStyle(fontSize: 18)),
+                Text('Address: ${_device?.address}', style: const TextStyle(fontSize: 18)),
+                Text('Type: ${_device?.type}', style: const TextStyle(fontSize: 18)),
+                Text('Bond state: ${_device?.bondState}', style: const TextStyle(fontSize: 18)),
               ],
-            ),
-          ],
+              const SizedBox(height: 32),
+              Text('Last scan: $_lastData', style: const TextStyle(fontSize: 18)),
+              const SizedBox(height: 32),
+              Wrap(
+                runSpacing: 16,
+                spacing: 8,
+                children: [
+                  FilledButton(onPressed: startServer, child: const Text('Start')),
+                  FilledButton(onPressed: stopServer, child: const Text('Stop')),
+                  FilledButton(onPressed: enableBT, child: const Text('Enable BT')),
+                  FilledButton(onPressed: checkPermissions, child: const Text('Check permissions')),
+                  FilledButton(onPressed: requestPermissions, child: const Text('Request permissions')),
+                  FilledButton(onPressed: getStatus, child: const Text('Get status')),
+                  FilledButton(onPressed: subscribe, child: const Text('Subscribe')),
+                  FilledButton(onPressed: unsubscribe, child: const Text('Unsubscribe')),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -14,17 +14,14 @@ enum Code {
   advertiseNotSupported('ADVERTISE_NOT_SUPPORTED'),
   alreadyInProgress('ALREADY_IN_PROGRESS'),
   noActivity('NO_ACTIVITY'),
-
   unknownStatus('UNKNOWN_STATUS');
 
   final String value;
 
   const Code(this.value);
 
-  static final Map<String, Code> _map = {for (var code in Code.values) code.value: code};
-
-  static Code fromString(String? code) {
-    return _map[code?.toUpperCase()] ?? Code.unknownStatus;
+  static Code fromString(String? value) {
+    return Code.values.firstWhere((Code code) => code.value == value?.toUpperCase(), orElse: () => Code.unknownStatus);
   }
 
   String get message => switch (this) {

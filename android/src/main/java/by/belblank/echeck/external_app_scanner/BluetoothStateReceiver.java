@@ -5,16 +5,15 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 
-import androidx.annotation.Nullable;
+import androidx.annotation.NonNull;
 
 public class BluetoothStateReceiver extends BroadcastReceiver {
 
-    private final Runnable onBluetoothOffCallback;
+    private final Runnable stateOffCallback;
 
-    BluetoothStateReceiver(@Nullable Runnable onOffCallback) {
-        this.onBluetoothOffCallback = onOffCallback;
+    BluetoothStateReceiver(@NonNull Runnable stateOffCallback) {
+        this.stateOffCallback = stateOffCallback;
     }
-
 
     @Override
     public void onReceive(Context context, Intent intent) {
@@ -23,16 +22,8 @@ public class BluetoothStateReceiver extends BroadcastReceiver {
 
             switch (state) {
                 case BluetoothAdapter.STATE_OFF:
-                    ScannerEvents.StatusBuilder.info(Constants.Codes.BT_DISABLED).send();
-                    break;
-                case BluetoothAdapter.STATE_ON:
-                    ScannerEvents.StatusBuilder.info(Constants.Codes.BT_ENABLED).send();
-                    break;
-                case BluetoothAdapter.STATE_TURNING_OFF:
-                case BluetoothAdapter.STATE_TURNING_ON:
-                    if (onBluetoothOffCallback != null) {
-                        onBluetoothOffCallback.run();
-                    }
+                    stateOffCallback.run();
+                case BluetoothAdapter.STATE_ON, BluetoothAdapter.STATE_TURNING_ON, BluetoothAdapter.STATE_TURNING_OFF:
                     break;
             }
         }

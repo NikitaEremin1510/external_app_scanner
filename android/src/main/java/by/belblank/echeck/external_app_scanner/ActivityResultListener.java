@@ -3,6 +3,7 @@ package by.belblank.echeck.external_app_scanner;
 import android.Manifest;
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -35,15 +36,8 @@ public class ActivityResultListener implements PluginRegistry.ActivityResultList
             return;
         }
 
-        BluetoothAdapter adapter = null;
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-            android.bluetooth.BluetoothManager manager = (android.bluetooth.BluetoothManager) activity.getSystemService(Context.BLUETOOTH_SERVICE);
-            if (manager != null) {
-                adapter = manager.getAdapter();
-            }
-        } else {
-            adapter = BluetoothAdapter.getDefaultAdapter();
-        }
+        BluetoothManager manager = (BluetoothManager) activity.getSystemService(Context.BLUETOOTH_SERVICE);
+        BluetoothAdapter adapter = manager.getAdapter();
 
         if (adapter != null && adapter.isEnabled()) {
             result.success(true);

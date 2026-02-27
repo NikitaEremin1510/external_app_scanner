@@ -1,5 +1,6 @@
 package by.belblank.echeck.external_app_scanner;
 
+import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCharacteristic;
@@ -13,6 +14,8 @@ import android.bluetooth.le.AdvertiseData;
 import android.bluetooth.le.AdvertiseSettings;
 import android.bluetooth.le.BluetoothLeAdvertiser;
 import android.content.Context;
+import android.content.IntentFilter;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.ParcelUuid;
@@ -26,9 +29,11 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
-public class ExternalAppServerManager {
+public class GattService {
 
     private final Context context;
+    private final StreamHandlerImpl statusStreamHandler;
+    private final StreamHandlerImpl dataStreamHandler;
     private final BluetoothManager bluetoothManager;
     private final BluetoothLeAdvertiser advertiser;
     private final ByteArrayOutputStream messageBuffer = new ByteArrayOutputStream();
@@ -37,8 +42,12 @@ public class ExternalAppServerManager {
     private BluetoothDevice currentDevice;
     private boolean isRunning;
 
-    public ExternalAppServerManager(Context context) {
+    private final BluetoothStateReceiver btStateReceiver = new BluetoothStateReceiver(this::stopServer);
+
+    public GattService(Context context, StreamHandlerImpl statusStreamHandler, StreamHandlerImpl dataStreamHandler) {
         this.context = context;
+        this.statusStreamHandler = statusStreamHandler;
+        this.dataStreamHandler = dataStreamHandler;
         this.bluetoothManager = (BluetoothManager) context.getSystemService(Context.BLUETOOTH_SERVICE);
         this.advertiser = bluetoothManager.getAdapter().getBluetoothLeAdvertiser();
     }
@@ -57,6 +66,7 @@ public class ExternalAppServerManager {
     }
 
     public void startServer() {
+        registerBroadcastReceiver();
         if (isRunning) return;
         startGattServer();
         if (currentDevice == null) {
@@ -65,12 +75,28 @@ public class ExternalAppServerManager {
         isRunning = true;
     }
 
+    private void registerBroadcastReceiver() {
+        if (context == null) return;
+        IntentFilter filter = new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            context.registerReceiver(btStateReceiver, filter, Context.RECEIVER_EXPORTED);
+        } else {
+            context.registerReceiver(btStateReceiver, filter);
+        }
+    }
+
+    private void unregisterBroadcastReceiver() {
+        if (context == null) return;
+        context.unregisterReceiver(btStateReceiver);
+        Logger.d("Broadcast receiver unregistered.");
+    }
+
     public void stopServer() {
         stopAdvertising();
         stopGattServer();
-        Logger.d("Server stopped.");
+        unregisterBroadcastReceiver();
         isRunning = false;
-        ScannerEvents.StatusBuilder.info(Constants.Codes.SERVICE_STOPPED).send();
+        statusStreamHandler.send(Utils.buildStatusMap(Constants.Codes.SERVICE_STOPPED, Constants.StatusType.INFO, null));
     }
 
     private void startAdvertising() {
@@ -97,6 +123,7 @@ public class ExternalAppServerManager {
     private void stopAdvertising() {
         if (advertiser != null) {
             advertiser.stopAdvertising(advertiseCallback);
+            Logger.i("Advertising stopped.");
         }
     }
 
@@ -119,13 +146,14 @@ public class ExternalAppServerManager {
             gattServer.clearServices();
             gattServer.close();
             gattServer = null;
+            Logger.i("Gatt server closed.");
         }
     }
 
     private void flushBuffer() {
         if (messageBuffer.size() > 0) {
-            String message = new String(messageBuffer.toByteArray(), StandardCharsets.UTF_8);
-            new ScannerEvents.Data(message).send();
+            String message = new String(messageBuffer.toByteArray(), StandardCharsets.UTF_8).trim();
+            dataStreamHandler.send(message);
             messageBuffer.reset();
         }
     }
@@ -137,7 +165,7 @@ public class ExternalAppServerManager {
         public void onStartSuccess(AdvertiseSettings settingsInEffect) {
             Logger.i("Advertising started. Settings: " + settingsInEffect.toString() + ".");
             if (currentDevice == null) {
-                ScannerEvents.StatusBuilder.info(Constants.Codes.SERVICE_STARTED).send();
+                statusStreamHandler.send(Utils.buildStatusMap(Constants.Codes.SERVICE_STARTED, Constants.StatusType.INFO, null));
             } else {
                 Logger.d("Skip SERVICE_STARTED status because device already connected.");
             }
@@ -146,7 +174,7 @@ public class ExternalAppServerManager {
         @Override
         public void onStartFailure(int errorCode) {
             Logger.w("Advertising start failure. Error code: " + errorCode + ".");
-            ScannerEvents.StatusBuilder.error(Constants.Codes.ADVERTISE_FAILED).send();
+            statusStreamHandler.send(Utils.buildStatusMap(Constants.Codes.ADVERTISE_FAILED, Constants.StatusType.ERROR, null));
         }
     };
 
@@ -157,23 +185,18 @@ public class ExternalAppServerManager {
             if (newState == BluetoothProfile.STATE_CONNECTED) {
                 Logger.i("Device connected. Device name: " + device.getName() + " Device address: [" + device.getAddress() + "]");
                 currentDevice = device;
-                ScannerEvents.StatusBuilder.info(Constants.Codes.DEVICE_CONNECTED)
-                        .addDevice(createBluetoothDeviceMap(device))
-                        .send();
+                statusStreamHandler.send(Utils.buildStatusMap(Constants.Codes.DEVICE_CONNECTED, Constants.StatusType.INFO, createBluetoothDeviceMap(device)));
                 if (isRunning) {
-                    new Handler(Looper.getMainLooper()).postDelayed(
-                            () -> stopAdvertising(), 1000L
-                    );
+                    new Handler(Looper.getMainLooper()).postDelayed(() -> stopAdvertising(), 1000L);
                 }
             }
             // Устройство отключено
             else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                Logger.i("Device disconnected. Device name: " + device.getName() + " Device address: [" + device.getAddress() + "]. Status: " + status);
+                Logger.i("Device disconnected. Status: " + status);
                 messageBuffer.reset();
                 currentDevice = null;
-
-                ScannerEvents.StatusBuilder.info(Constants.Codes.DEVICE_DISCONNECTED).send();
-                startAdvertising();
+                statusStreamHandler.send(Utils.buildStatusMap(Constants.Codes.DEVICE_DISCONNECTED, Constants.StatusType.INFO, null));
+                new Handler(Looper.getMainLooper()).postDelayed(() -> startAdvertising(), 500L);
             }
         }
 
@@ -219,14 +242,7 @@ public class ExternalAppServerManager {
 
                 try {
                     messageBuffer.write(value);
-
-                    // Если сообщение заканчивается спецсимволом (CR/LF)
-                    // или мы просто решили, что каждый Write — это отдельное событие:
-                    String currentData = new String(messageBuffer.toByteArray(), StandardCharsets.UTF_8);
-                    if (currentData.endsWith("\n") || currentData.endsWith("\r") || offset == 0) {
-                        new ScannerEvents.Data(currentData.trim()).send();
-                        messageBuffer.reset();
-                    }
+                    flushBuffer();
                 } catch (IOException e) {
                     Logger.e("Buffer write error", e);
                 }
