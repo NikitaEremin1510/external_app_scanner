@@ -32,8 +32,8 @@ import java.util.Map;
 public class GattService {
 
     private final Context context;
-    private final StreamHandlerImpl statusStreamHandler;
-    private final StreamHandlerImpl dataStreamHandler;
+    private final StreamHandlerImpl statusStream;
+    private final StreamHandlerImpl dataStream;
     private final BluetoothManager bluetoothManager;
     private final BluetoothLeAdvertiser advertiser;
     private final ByteArrayOutputStream messageBuffer = new ByteArrayOutputStream();
@@ -41,29 +41,18 @@ public class GattService {
     private BluetoothGattServer gattServer;
     private BluetoothDevice currentDevice;
     private boolean isRunning;
+    private boolean isReceiverRegistered;
 
     private final BluetoothStateReceiver btStateReceiver = new BluetoothStateReceiver(this::stopServer);
 
     public GattService(@NonNull Context context, StreamHandlerImpl statusStreamHandler, StreamHandlerImpl dataStreamHandler) {
         this.context = context;
-        this.statusStreamHandler = statusStreamHandler;
-        this.dataStreamHandler = dataStreamHandler;
+        this.statusStream = statusStreamHandler;
+        this.dataStream = dataStreamHandler;
         this.bluetoothManager = (BluetoothManager) context.getSystemService(Context.BLUETOOTH_SERVICE);
         this.advertiser = bluetoothManager.getAdapter().getBluetoothLeAdvertiser();
     }
 
-    public Map<String, Object> getCurrentStatus() {
-        String code = Constants.Codes.SERVICE_STOPPED;
-        Map<String, Object> deviceMap = null;
-        if (isRunning) {
-            code = Constants.Codes.SERVICE_STARTED;
-        }
-        if (currentDevice != null) {
-            code = Constants.Codes.DEVICE_CONNECTED;
-            deviceMap = createBluetoothDeviceMap(currentDevice);
-        }
-        return Utils.buildStatusMap(code, Constants.StatusType.INFO, deviceMap);
-    }
 
     public void startServer() {
         if (isRunning) return;
@@ -72,26 +61,21 @@ public class GattService {
         if (currentDevice == null) {
             startAdvertising();
         }
-        isRunning = true;
     }
 
-    private void registerBroadcastReceiver() {
-        if (context == null) return;
-        IntentFilter filter = new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            context.registerReceiver(btStateReceiver, filter, Context.RECEIVER_EXPORTED);
-        } else {
-            context.registerReceiver(btStateReceiver, filter);
+    public HashMap<String, Object> getCurrentStatus() {
+        String code = Constants.Code.SERVICE_STOPPED;
+        Map<String, Object> deviceMap = null;
+        String advertisingName = null;
+        if (isRunning) {
+            code = Constants.Code.SERVICE_STARTED;
+            advertisingName = getAdvertisingName();
         }
-        Logger.d("Broadcast receiver registered.");
-    }
-
-    private void unregisterBroadcastReceiver() {
-        try {
-            context.unregisterReceiver(btStateReceiver);
-        } catch (Exception ignored) {
+        if (currentDevice != null) {
+            code = Constants.Code.DEVICE_CONNECTED;
+            deviceMap = deviceToMap(currentDevice);
         }
-        Logger.i("Broadcast receiver unregistered.");
+        return Utils.buildInfoStatus(code, deviceMap, advertisingName);
     }
 
     public void stopServer() {
@@ -99,7 +83,30 @@ public class GattService {
         stopGattServer();
         isRunning = false;
         unregisterBroadcastReceiver();
-        statusStreamHandler.send(Utils.buildStatusMap(Constants.Codes.SERVICE_STOPPED, Constants.StatusType.INFO, null));
+        statusStream.add(Utils.buildInfoStatus(Constants.Code.SERVICE_STOPPED, null, null));
+    }
+
+
+    private void registerBroadcastReceiver() {
+        if(isReceiverRegistered) return;
+        IntentFilter filter = new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            context.registerReceiver(btStateReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            context.registerReceiver(btStateReceiver, filter);
+        }
+        isReceiverRegistered = true;
+        Logger.i("Broadcast receiver registered.");
+    }
+
+    private void unregisterBroadcastReceiver() {
+        if(!isReceiverRegistered) return;
+        try {
+            context.unregisterReceiver(btStateReceiver);
+        } catch (Exception ignored) {
+        }
+        isReceiverRegistered = false;
+        Logger.i("Broadcast receiver unregistered.");
     }
 
     private void startAdvertising() {
@@ -135,6 +142,7 @@ public class GattService {
         Logger.i("Gatt Server started.");
         if (gattServer == null) {
             Logger.e("CRITICAL: openGattServer is NULL!", null);
+            statusStream.add(Utils.buildErrorStatus(Constants.Code.GATT_INIT_FAILED));
             return;
         }
 
@@ -154,10 +162,12 @@ public class GattService {
         }
     }
 
+    @SuppressWarnings("StringOperationCanBeSimplified")
     private void flushBuffer() {
         if (messageBuffer.size() > 0) {
-            String message = new String(messageBuffer.toByteArray(), StandardCharsets.UTF_8).trim();
-            dataStreamHandler.send(message);
+            byte[] bytes = messageBuffer.toByteArray();
+            String message = new String(bytes, StandardCharsets.UTF_8).trim();
+            dataStream.add(message);
             messageBuffer.reset();
         }
     }
@@ -168,15 +178,17 @@ public class GattService {
         @Override
         public void onStartSuccess(@NonNull AdvertiseSettings settingsInEffect) {
             Logger.i("Advertising started. Settings: " + settingsInEffect + ".");
+            isRunning = true;
             if (currentDevice == null) {
-                statusStreamHandler.send(Utils.buildStatusMap(Constants.Codes.SERVICE_STARTED, Constants.StatusType.INFO, null));
+                statusStream.add(Utils.buildInfoStatus(Constants.Code.SERVICE_STARTED, null, getAdvertisingName()));
             }
         }
 
         @Override
         public void onStartFailure(int errorCode) {
             Logger.w("Advertising start failure. Error code: " + errorCode + ".");
-            statusStreamHandler.send(Utils.buildStatusMap(Constants.Codes.ADVERTISE_FAILED, Constants.StatusType.ERROR, null));
+            isRunning = false;
+            statusStream.add(Utils.buildErrorStatus(Constants.Code.ADVERTISE_FAILED));
         }
     };
 
@@ -185,34 +197,34 @@ public class GattService {
         public void onConnectionStateChange(BluetoothDevice device, int status, int newState) {
             // Устройство подключено
             if (newState == BluetoothProfile.STATE_CONNECTED) {
-                Logger.i("Device connected. Device name: " + device.getName() + " Device address: [" + device.getAddress() + "]");
+                Logger.d("Device connected. Device name: " + device.getName() + " Device address: [" + device.getAddress() + "]");
                 currentDevice = device;
-                statusStreamHandler.send(Utils.buildStatusMap(Constants.Codes.DEVICE_CONNECTED, Constants.StatusType.INFO, createBluetoothDeviceMap(device)));
+                statusStream.add(Utils.buildInfoStatus(Constants.Code.DEVICE_CONNECTED, deviceToMap(device), null));
                 if (isRunning) {
                     new Handler(Looper.getMainLooper()).postDelayed(() -> stopAdvertising(), 1000L);
                 }
             }
+
             // Устройство отключено
             else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                Logger.i("Device disconnected. Status: " + status);
+                Logger.d("Device disconnected. Status: " + status);
                 messageBuffer.reset();
-                currentDevice = null;
-                statusStreamHandler.send(Utils.buildStatusMap(Constants.Codes.DEVICE_DISCONNECTED, Constants.StatusType.INFO, null));
-                new Handler(Looper.getMainLooper()).postDelayed(() -> startAdvertising(), 500L);
+                if (currentDevice != null && currentDevice.getAddress().equals(device.getAddress())) {
+                    currentDevice = null;
+                }
+                statusStream.add(Utils.buildInfoStatus(Constants.Code.DEVICE_DISCONNECTED, null, null));
+                new Handler(Looper.getMainLooper()).postDelayed(() -> startAdvertising(), 1000L);
             }
         }
 
 
         @Override
-        public void onCharacteristicWriteRequest(BluetoothDevice device,
-                                                 int requestId,
+        public void onCharacteristicWriteRequest(BluetoothDevice device, int requestId,
                                                  BluetoothGattCharacteristic characteristic,
-                                                 boolean preparedWrite,
-                                                 boolean responseNeeded,
-                                                 int offset,
-                                                 byte[] value) {
+                                                 boolean preparedWrite, boolean responseNeeded,
+                                                 int offset, byte[] value) {
 
-            Logger.i(String.format(Locale.ROOT,
+            Logger.d(String.format(Locale.ROOT,
                     "BLE Write Request | Device: %s [%s] | ID: %d | UUID: %s | PrepWrite: %b | RespNeed: %b | Offset: %d | Value: '%s'",
                     device.getName(),
                     device.getAddress(),
@@ -292,8 +304,12 @@ public class GattService {
         return service;
     }
 
+    private String getAdvertisingName(){
+        return bluetoothManager.getAdapter().getName();
+    }
+
     @NonNull
-    private Map<String, Object> createBluetoothDeviceMap(@NonNull BluetoothDevice device) {
+    private Map<String, Object> deviceToMap(@NonNull BluetoothDevice device) {
         Map<String, Object> deviceMap = new HashMap<>();
         deviceMap.put("name", device.getName());
         deviceMap.put("address", device.getAddress());

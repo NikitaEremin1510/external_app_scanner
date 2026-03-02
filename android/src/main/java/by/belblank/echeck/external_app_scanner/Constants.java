@@ -35,7 +35,7 @@ public final class Constants {
     // Список кодов
     // -----------------------
 
-    public static final class Codes {
+    public static final class Code {
         // Информационные
         public static final String BT_ENABLED = "BT_ENABLED";
         public static final String BT_DISABLED = "BT_DISABLED";

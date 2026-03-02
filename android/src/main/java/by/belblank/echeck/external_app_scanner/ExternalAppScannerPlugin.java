@@ -93,30 +93,30 @@ public class ExternalAppScannerPlugin implements FlutterPlugin, MethodCallHandle
         if (!activity.isFinishing() && activityResultListener != null) {
             activityResultListener.requestBluetoothEnable(result);
         } else {
-            result.error(Constants.Codes.NO_ACTIVITY, null, null);
+            result.error(Constants.Code.NO_ACTIVITY, null, null);
         }
     }
 
     private void start(MethodChannel.Result result) {
-
         if (!Utils.hasPermissions(context)) {
-            result.error(Constants.Codes.PERMISSION_NOT_GRANTED, null, null);
+            result.error(Constants.Code.PERMISSION_NOT_GRANTED, null, null);
             return;
         }
 
         if (!Utils.isBluetoothEnabled(context)) {
-            result.error(Constants.Codes.BT_DISABLED, null, null);
+            result.error(Constants.Code.BT_DISABLED, null, null);
             return;
         }
 
         if (!Utils.isAdvertiseSupported(context)) {
-            result.error(Constants.Codes.ADVERTISE_NOT_SUPPORTED, null, null);
+            result.error(Constants.Code.ADVERTISE_NOT_SUPPORTED, null, null);
             return;
         }
+
         if (serverManager == null) {
             serverManager = new GattService(context, statusStreamHandler, dataStreamHandler);
-            serverManager.startServer();
         }
+        serverManager.startServer();
         result.success(null);
     }
 
@@ -124,11 +124,7 @@ public class ExternalAppScannerPlugin implements FlutterPlugin, MethodCallHandle
         if (serverManager != null) {
             result.success(serverManager.getCurrentStatus());
         } else {
-            result.success(Utils.buildStatusMap(
-                    Constants.Codes.SERVICE_STOPPED,
-                    Constants.StatusType.INFO,
-                    null
-            ));
+            result.success(Utils.buildInfoStatus(Constants.Code.SERVICE_STOPPED, null, null));
         }
     }
 
@@ -137,7 +133,7 @@ public class ExternalAppScannerPlugin implements FlutterPlugin, MethodCallHandle
             serverManager.stopServer();
             serverManager = null;
         }
-        result.success(true);
+        result.success(null);
     }
 
 

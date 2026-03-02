@@ -24,7 +24,7 @@ public class ActivityResultListener implements PluginRegistry.ActivityResultList
     private MethodChannel.Result pendingResult;
     private final Activity activity;
 
-    public ActivityResultListener(Activity activity) {
+    public ActivityResultListener(@NonNull Activity activity) {
         this.activity = activity;
     }
 
@@ -32,7 +32,7 @@ public class ActivityResultListener implements PluginRegistry.ActivityResultList
 
         // Защита от дублирующих вызовов
         if (this.pendingResult != null) {
-            result.error(Constants.Codes.ALREADY_IN_PROGRESS, null, null);
+            result.error(Constants.Code.ALREADY_IN_PROGRESS, null, null);
             return;
         }
 
@@ -51,7 +51,7 @@ public class ActivityResultListener implements PluginRegistry.ActivityResultList
             if (ContextCompat.checkSelfPermission(activity, Manifest.permission.BLUETOOTH_CONNECT)
                     != PackageManager.PERMISSION_GRANTED) {
 
-                result.error(Constants.Codes.PERMISSION_NOT_GRANTED, null, null);
+                result.error(Constants.Code.PERMISSION_NOT_GRANTED, null, null);
                 this.pendingResult = null;
                 return;
             }
@@ -62,7 +62,7 @@ public class ActivityResultListener implements PluginRegistry.ActivityResultList
             Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
             activity.startActivityForResult(enableBtIntent, REQUEST_CODE_ENABLE_BT);
         } catch (Exception e) {
-            result.error(Constants.Codes.NO_ACTIVITY, e.getMessage(), e);
+            result.error(Constants.Code.NO_ACTIVITY, e.getMessage(), e);
             this.pendingResult = null;
         }
     }

@@ -16,7 +16,7 @@ public class BluetoothStateReceiver extends BroadcastReceiver {
     }
 
     @Override
-    public void onReceive(Context context, Intent intent) {
+    public void onReceive(Context context, @NonNull Intent intent) {
         if (BluetoothAdapter.ACTION_STATE_CHANGED.equals(intent.getAction())) {
             int state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR);
 

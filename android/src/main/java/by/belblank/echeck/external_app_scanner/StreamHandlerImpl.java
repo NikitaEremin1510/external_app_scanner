@@ -29,7 +29,7 @@ public class StreamHandlerImpl implements EventChannel.StreamHandler {
      *
      * @param data Данные для отправки.
      */
-    public void send(final Object data) {
+    public void add(final Object data) {
         uiHandler.post(() -> {
             if (eventSink != null) {
                 eventSink.success(data);
