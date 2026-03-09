@@ -82,17 +82,29 @@ public final class Utils {
         return missing;
     }
 
+
     @NonNull
-    public static HashMap<String, Object> buildStatusMap(@Nullable String code,
-                                                         @Nullable String type,
-                                                         @Nullable Map<String, Object> device) {
+    public static HashMap<String, Object> buildInfoStatus(@NonNull String code,
+                                                          @Nullable Map<String, Object> device,
+                                                          @Nullable String advertisingName) {
         final HashMap<String, Object> status = new HashMap<>();
 
-        status.put("code", code == null ? Constants.Codes.UNKNOWN_STATUS : code);
-        status.put("type", type == null ? Constants.StatusType.INFO : type);
+        status.put("code", code);
+        status.put("type", Constants.StatusType.INFO);
         if (device != null && !device.isEmpty()) {
             status.put("device", device);
         }
+        if(advertisingName != null){
+            status.put("advertising_name", advertisingName);
+        }
+        return status;
+    }
+
+    @NonNull
+    public static HashMap<String, Object> buildErrorStatus(@Nullable String code) {
+        final HashMap<String, Object> status = new HashMap<>();
+        status.put("code", code == null ? Constants.Code.UNKNOWN_STATUS : code);
+        status.put("type", Constants.StatusType.ERROR);
         return status;
     }
 }
