@@ -20,7 +20,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   String _lastData = '';
   Code? _code;
-  BluetoothDevice? _device;
+  ExtBluetoothDevice? _device;
 
   @override
   void dispose() {
