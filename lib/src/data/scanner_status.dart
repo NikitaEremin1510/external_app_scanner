@@ -1,4 +1,6 @@
-import 'package:external_app_scanner/external_app_scanner.dart';
+import 'bluetooth_device.dart';
+import 'code.dart';
+import 'type.dart';
 
 class ExtAppScannerStatus {
   final Type type;
@@ -6,7 +8,7 @@ class ExtAppScannerStatus {
 
   /// Опциональная модель устройства.
   /// Заполнена только при событиях подключения/отключения [Code.deviceConnected] или [Code.deviceDisconnected].
-  final BluetoothDevice? device;
+  final ExtBluetoothDevice? device;
 
   /// Имя с которым идет трансляция устройства.
   /// Заполнено только при событии [Code.serviceStarted]
@@ -27,7 +29,7 @@ class ExtAppScannerStatus {
     return ExtAppScannerStatus._(
       type: Type.fromString(map['type'] ?? ''),
       code: Code.fromString(map['code'] ?? ''),
-      device: deviceMap is Map ? BluetoothDevice.fromMap(deviceMap) : null,
+      device: deviceMap is Map ? ExtBluetoothDevice.fromMap(deviceMap) : null,
       advertisingName: map['advertising_name'],
     );
   }

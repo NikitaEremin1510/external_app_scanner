@@ -1,24 +1,24 @@
-class BluetoothDevice {
+class ExtBluetoothDevice {
   final String name;
   final String address; // MAC-адрес
-  final BluetoothType type;
-  final BondState bondState;
+  final ExtBluetoothType type;
+  final ExtBondState bondState;
 
-  const BluetoothDevice({required this.name, required this.address, required this.type, required this.bondState});
+  const ExtBluetoothDevice({required this.name, required this.address, required this.type, required this.bondState});
 
-  factory BluetoothDevice.fromMap(Map<dynamic, dynamic> map) {
-    return BluetoothDevice(
+  factory ExtBluetoothDevice.fromMap(Map<dynamic, dynamic> map) {
+    return ExtBluetoothDevice(
       name: map['name'] ?? '',
       address: map['address'] ?? '',
-      type: BluetoothType.fromInt(map['type'] as int?),
-      bondState: BondState.fromInt(map['bondState'] as int?),
+      type: ExtBluetoothType.fromInt(map['type'] as int?),
+      bondState: ExtBondState.fromInt(map['bondState'] as int?),
     );
   }
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is BluetoothDevice && runtimeType == other.runtimeType && address == other.address;
+      other is ExtBluetoothDevice && runtimeType == other.runtimeType && address == other.address;
 
   @override
   int get hashCode => address.hashCode;
@@ -30,7 +30,7 @@ class BluetoothDevice {
 }
 
 /// Соответствует константам Android [BluetoothDevice.DEVICE_TYPE_*]
-enum BluetoothType {
+enum ExtBluetoothType {
   unknown(0),
   classic(1),
   le(2),
@@ -38,24 +38,24 @@ enum BluetoothType {
 
   final int value;
 
-  const BluetoothType(this.value);
+  const ExtBluetoothType(this.value);
 
-  static BluetoothType fromInt(int? value) {
-    return BluetoothType.values.firstWhere((e) => e.value == value, orElse: () => BluetoothType.unknown);
+  static ExtBluetoothType fromInt(int? value) {
+    return ExtBluetoothType.values.firstWhere((e) => e.value == value, orElse: () => ExtBluetoothType.unknown);
   }
 }
 
 /// Соответствует константам Android [BluetoothDevice.BOND_*]
-enum BondState {
+enum ExtBondState {
   none(10),
   bonding(11),
   bonded(12);
 
   final int value;
 
-  const BondState(this.value);
+  const ExtBondState(this.value);
 
-  static BondState fromInt(int? value) {
-    return BondState.values.firstWhere((e) => e.value == value, orElse: () => BondState.none);
+  static ExtBondState fromInt(int? value) {
+    return ExtBondState.values.firstWhere((e) => e.value == value, orElse: () => ExtBondState.none);
   }
 }

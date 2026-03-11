@@ -1,4 +1,4 @@
-import 'package:external_app_scanner/external_app_scanner.dart';
+import 'code.dart';
 
 class ScannerException implements Exception {
   final Code code;
