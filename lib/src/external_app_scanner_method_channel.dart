@@ -32,7 +32,7 @@ class ExternalAppScannerMethodChannel extends ExternalAppScannerPlatform {
   @override
   Future<void> start() async {
     try {
-      await _methodChannel.invokeMethod<bool>('start');
+      await _methodChannel.invokeMethod('start');
     } on PlatformException catch (e) {
       throw _handlePlatformException(e);
     }
@@ -41,7 +41,7 @@ class ExternalAppScannerMethodChannel extends ExternalAppScannerPlatform {
   @override
   Future<void> stop() async {
     try {
-      await _methodChannel.invokeMethod<bool>('stop');
+      await _methodChannel.invokeMethod('stop');
     } on PlatformException catch (e) {
       throw _handlePlatformException(e);
     }
