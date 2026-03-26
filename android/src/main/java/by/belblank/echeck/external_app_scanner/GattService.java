@@ -121,6 +121,7 @@ public class GattService {
         AdvertiseData data = new AdvertiseData.Builder()
                 .setIncludeDeviceName(false) // Имя лучше в ScanResponse, чтобы влез UUID
                 .addServiceUuid(new ParcelUuid(Constants.SERVICE_UUID))
+                .setIncludeTxPowerLevel(true)
                 .build();
 
         AdvertiseData scanResponse = new AdvertiseData.Builder()
@@ -154,6 +155,7 @@ public class GattService {
         if (gattServer != null) {
             if (currentDevice != null) {
                 gattServer.cancelConnection(currentDevice);
+                currentDevice = null;
             }
             gattServer.clearServices();
             gattServer.close();
